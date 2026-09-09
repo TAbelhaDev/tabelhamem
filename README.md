@@ -51,11 +51,19 @@ go install github.com/TAbelhaDev/tabelhamem@latest
 # writes/updates the bridge instructions in <repo>/AGENTS.md. Idempotent.
 tamem ipc link project=tabelharadar repo=/home/ianptkcs/codigo/tabelhadev/tabelharadar --json
 
+# Undo it: <repo>'s Claude Code memory dir gets a real copy of the current
+# shared content back (the shared dir itself is left alone), and the
+# AGENTS.md section is removed.
+tamem ipc unlink project=tabelharadar repo=/home/ianptkcs/codigo/tabelhadev/tabelharadar --json
+
 # Check the bridge's health for one project
 tamem ipc status project=tabelharadar repo=/home/ianptkcs/codigo/tabelhadev/tabelharadar --json
 
 # List every project currently bridged
 tamem ipc list --json
+
+# Search memory across every bridged project
+tamem ipc search query=worktree type=feedback --json
 ```
 
 ## IPC Methods
@@ -63,8 +71,10 @@ tamem ipc list --json
 | Method | Filters | Description |
 |---|---|---|
 | `link` | `project=`, `repo=` | Creates/updates the bridge for a project: migrate + symlink + AGENTS.md section |
+| `unlink` | `project=`, `repo=` | Reverses `link` for one repo: restores a real directory, removes the AGENTS.md section, leaves the shared dir alone |
 | `status` | `project=`, `repo=` (optional) | Reports whether the symlink and AGENTS.md section are in place |
 | `list` | (none) | Lists every project under `~/agent-memory/` |
+| `search` | `query=`, `type=` (optional), `project=` (optional) | Full-text search across every bridged project's memory files |
 
 ## Limitations
 
@@ -74,3 +84,7 @@ tamem ipc list --json
 - `link` must be re-run per git worktree; a worktree's Claude Code memory
   directory is not touched automatically just because the main checkout was
   linked.
+- After `unlink`, re-running `link` will refuse to overwrite if the local
+  copy has since diverged from the shared store (same safety check as a
+  fresh, never-linked directory) — resolve by hand (diff the two, then
+  remove the local copy once you're sure nothing would be lost).

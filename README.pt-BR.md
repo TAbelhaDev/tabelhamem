@@ -54,11 +54,19 @@ go install github.com/TAbelhaDev/tabelhamem@latest
 # repo. Idempotente.
 tamem ipc link project=tabelharadar repo=/home/ianptkcs/codigo/tabelhadev/tabelharadar --json
 
+# Desfaz: o diretório de memória do Claude Code em <repo> volta a ter uma
+# cópia real do conteúdo compartilhado (o diretório compartilhado em si não
+# é tocado), e a seção do AGENTS.md é removida.
+tamem ipc unlink project=tabelharadar repo=/home/ianptkcs/codigo/tabelhadev/tabelharadar --json
+
 # Confere a saúde da ponte pra um projeto
 tamem ipc status project=tabelharadar repo=/home/ianptkcs/codigo/tabelhadev/tabelharadar --json
 
 # Lista todos os projetos já em ponte
 tamem ipc list --json
+
+# Busca na memória de todos os projetos já ligados
+tamem ipc search query=worktree type=feedback --json
 ```
 
 ## Métodos IPC
@@ -66,8 +74,10 @@ tamem ipc list --json
 | Método | Filtros | Descrição |
 |---|---|---|
 | `link` | `project=`, `repo=` | Cria/atualiza a ponte de um projeto: migra + symlink + seção no AGENTS.md |
+| `unlink` | `project=`, `repo=` | Desfaz o `link` de um repo: restaura um diretório real, remove a seção do AGENTS.md, não mexe no diretório compartilhado |
 | `status` | `project=`, `repo=` (opcional) | Reporta se o symlink e a seção do AGENTS.md estão certos |
 | `list` | (nenhum) | Lista todos os projetos sob `~/agent-memory/` |
+| `search` | `query=`, `type=` (opcional), `project=` (opcional) | Busca texto em todos os projetos já ligados |
 
 ## Limitações
 
@@ -77,3 +87,7 @@ tamem ipc list --json
 - `link` precisa ser rodado de novo por worktree git; o diretório de
   memória do Claude Code de um worktree não é tocado automaticamente só
   porque o checkout principal foi ligado.
+- Depois de um `unlink`, rodar `link` de novo recusa sobrescrever se a
+  cópia local divergiu do compartilhado nesse meio tempo (mesma checagem de
+  segurança de um diretório nunca ligado) — resolva à mão (compare os dois,
+  remova a cópia local só depois de confirmar que nada se perde).
