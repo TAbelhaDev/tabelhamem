@@ -10,13 +10,22 @@ import (
 	"github.com/TAbelhaDev/tabelhascaff/ipc"
 )
 
-// unlinkResult is the wire format for the unlink method.
-type unlinkResult struct {
-	Project         string `json:"project"`
-	Repo            string `json:"repo"`
+// worktreeUnlinkResult holds the unlink status of a single worktree's Claude memory dir.
+type worktreeUnlinkResult struct {
+	Path            string `json:"path"`
 	ClaudeDir       string `json:"claude_dir"`
 	Restored        bool   `json:"restored"`
 	AgentsMdUpdated bool   `json:"agents_md_updated"`
+}
+
+// unlinkResult is the wire format for the unlink method.
+type unlinkResult struct {
+	Project         string                 `json:"project"`
+	Repo            string                 `json:"repo"`
+	ClaudeDir       string                 `json:"claude_dir"`
+	Restored        bool                   `json:"restored"`
+	AgentsMdUpdated bool                   `json:"agents_md_updated"`
+	Worktrees       []worktreeUnlinkResult `json:"worktrees,omitempty"`
 }
 
 // unlink reverses link: the shared directory at ~/agent-memory/<slug>/ is
@@ -41,19 +50,35 @@ func ipcUnlink(filters map[string]string) int {
 	claudeDir := claudeMemoryDir(repoAbs)
 	result := unlinkResult{Project: slug, Repo: repoAbs, ClaudeDir: claudeDir}
 
-	restored, err := unlinkClaudeDir(claudeDir, shared)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "erro:", err)
-		return 1
-	}
-	result.Restored = restored
+	worktrees := gitWorktrees(repoAbs)
+	for _, wt := range worktrees {
+		wtClaude := claudeMemoryDir(wt)
 
-	updated, err := removeAgentsSection(repoAbs)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "erro atualizando AGENTS.md:", err)
-		return 1
+		restored, err := unlinkClaudeDir(wtClaude, shared)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "erro em %s: %s\n", wt, err)
+			return 1
+		}
+		updated, err := removeAgentsSection(wt)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "erro atualizando AGENTS.md em %s: %s\n", wt, err)
+			return 1
+		}
+
+		entry := worktreeUnlinkResult{
+			Path:            wt,
+			ClaudeDir:       wtClaude,
+			Restored:        restored,
+			AgentsMdUpdated: updated,
+		}
+
+		if wt == repoAbs {
+			result.Restored = restored
+			result.AgentsMdUpdated = updated
+		} else {
+			result.Worktrees = append(result.Worktrees, entry)
+		}
 	}
-	result.AgentsMdUpdated = updated
 
 	return ipc.WriteJSON(result)
 }

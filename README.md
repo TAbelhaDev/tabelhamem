@@ -33,9 +33,10 @@ memory directory becomes a symlink into it (transparent — Claude just does
 normal file I/O); OpenCode is taught to read/write the same location through
 an instruction block `tamem` maintains in the repo's `AGENTS.md`.
 
-This also incidentally fixes a Claude Code quirk where every git worktree of
-the same repo gets its own disconnected memory directory — running `tamem
-run link` again from a worktree points it at the same shared bucket.
+When the repo is a git repository, `tamem` automatically detects all git
+worktrees via `git worktree list` and links, unlinks, or checks the bridge
+health for every one of them in a single invocation — no need to re-run
+per worktree.
 
 ## Install
 
@@ -81,9 +82,8 @@ tamem ipc search query=worktree type=feedback --json
 - OpenCode has no built-in mechanism to auto-read `AGENTS.md` instructions
   the way Claude Code auto-loads `MEMORY.md` — the bridge only works as
   reliably as the model follows that instruction each session.
-- `link` must be re-run per git worktree; a worktree's Claude Code memory
-  directory is not touched automatically just because the main checkout was
-  linked.
+- Worktree detection requires `git` on `$PATH`. If `git` is unavailable,
+  `tamem` falls back to operating on a single directory (the `repo=` path).
 - After `unlink`, re-running `link` will refuse to overwrite if the local
   copy has since diverged from the shared store (same safety check as a
   fresh, never-linked directory) — resolve by hand (diff the two, then

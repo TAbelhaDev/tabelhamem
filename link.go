@@ -10,15 +10,25 @@ import (
 	"github.com/TAbelhaDev/tabelhascaff/ipc"
 )
 
-// linkResult is the wire format for the link method.
-type linkResult struct {
-	Project         string   `json:"project"`
-	Repo            string   `json:"repo"`
-	SharedDir       string   `json:"shared_dir"`
+// worktreeLinkResult holds the link status of a single worktree's Claude memory dir.
+type worktreeLinkResult struct {
+	Path            string   `json:"path"`
 	ClaudeDir       string   `json:"claude_dir"`
 	MigratedFiles   []string `json:"migrated_files,omitempty"`
 	AlreadyLinked   bool     `json:"already_linked"`
 	AgentsMdUpdated bool     `json:"agents_md_updated"`
+}
+
+// linkResult is the wire format for the link method.
+type linkResult struct {
+	Project         string               `json:"project"`
+	Repo            string               `json:"repo"`
+	SharedDir       string               `json:"shared_dir"`
+	ClaudeDir       string               `json:"claude_dir"`
+	MigratedFiles   []string             `json:"migrated_files,omitempty"`
+	AlreadyLinked   bool                 `json:"already_linked"`
+	AgentsMdUpdated bool                 `json:"agents_md_updated"`
+	Worktrees       []worktreeLinkResult `json:"worktrees,omitempty"`
 }
 
 func ipcLink(filters map[string]string) int {
@@ -49,20 +59,37 @@ func ipcLink(filters map[string]string) int {
 		return 1
 	}
 
-	migrated, alreadyLinked, err := linkClaudeDir(claudeDir, shared)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "erro:", err)
-		return 1
-	}
-	result.MigratedFiles = migrated
-	result.AlreadyLinked = alreadyLinked
+	worktrees := gitWorktrees(repoAbs)
+	for _, wt := range worktrees {
+		wtClaude := claudeMemoryDir(wt)
 
-	updated, err := ensureAgentsSection(repoAbs, shared)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "erro atualizando AGENTS.md:", err)
-		return 1
+		migrated, alreadyLinked, err := linkClaudeDir(wtClaude, shared)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "erro em %s: %s\n", wt, err)
+			return 1
+		}
+		updated, err := ensureAgentsSection(wt, shared)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "erro atualizando AGENTS.md em %s: %s\n", wt, err)
+			return 1
+		}
+
+		entry := worktreeLinkResult{
+			Path:            wt,
+			ClaudeDir:       wtClaude,
+			MigratedFiles:   migrated,
+			AlreadyLinked:   alreadyLinked,
+			AgentsMdUpdated: updated,
+		}
+
+		if wt == repoAbs {
+			result.MigratedFiles = migrated
+			result.AlreadyLinked = alreadyLinked
+			result.AgentsMdUpdated = updated
+		} else {
+			result.Worktrees = append(result.Worktrees, entry)
+		}
 	}
-	result.AgentsMdUpdated = updated
 
 	return ipc.WriteJSON(result)
 }

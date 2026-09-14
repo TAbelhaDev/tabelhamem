@@ -34,10 +34,10 @@ o Claude só faz I/O de arquivo normal); o OpenCode é instruído a ler/
 escrever no mesmo lugar através de um bloco que o `tamem` mantém no
 `AGENTS.md` do repo.
 
-Isso também conserta de quebra uma peculiaridade do Claude Code em que cada
-worktree git do mesmo repo ganha um diretório de memória próprio,
-desconectado dos outros — rodar `tamem run link` de novo a partir de um
-worktree aponta ele pro mesmo bucket compartilhado.
+Quando o repo é um repositório git, o `tamem` detecta automaticamente todos
+os worktrees via `git worktree list` e liga, desfaz ou confere a saúde da
+ponte pra cada um deles em uma única invocação, sem precisar rodar o
+comando por worktree.
 
 ## Instalação
 
@@ -84,9 +84,8 @@ tamem ipc search query=worktree type=feedback --json
 - O OpenCode não tem mecanismo embutido pra ler `AGENTS.md` automaticamente
   como o Claude Code carrega o `MEMORY.md` sozinho — a ponte funciona tão
   bem quanto o modelo seguir essa instrução a cada sessão.
-- `link` precisa ser rodado de novo por worktree git; o diretório de
-  memória do Claude Code de um worktree não é tocado automaticamente só
-  porque o checkout principal foi ligado.
+- A detecção de worktrees requer `git` no `$PATH`. Se `git` não estiver
+  disponível, o `tamem` opera em um único diretório (o caminho de `repo=`).
 - Depois de um `unlink`, rodar `link` de novo recusa sobrescrever se a
   cópia local divergiu do compartilhado nesse meio tempo (mesma checagem de
   segurança de um diretório nunca ligado) — resolva à mão (compare os dois,

@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -69,4 +70,28 @@ func moveFile(src, dst string) error {
 		_ = os.Chmod(dst, info.Mode())
 	}
 	return os.Remove(src)
+}
+
+// gitWorktrees returns every worktree path (including the main one) for a
+// git repo at repo. If git is unavailable or repo is not a git repo it
+// falls back to returning []string{repo} so the caller always gets at least
+// the original path.
+func gitWorktrees(repo string) []string {
+	out, err := exec.Command("git", "-C", repo, "worktree", "list", "--porcelain").Output()
+	if err != nil {
+		return []string{repo}
+	}
+	var paths []string
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.HasPrefix(line, "worktree ") {
+			p := strings.TrimPrefix(line, "worktree ")
+			if p != "" {
+				paths = append(paths, p)
+			}
+		}
+	}
+	if len(paths) == 0 {
+		return []string{repo}
+	}
+	return paths
 }

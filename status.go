@@ -9,15 +9,24 @@ import (
 	"github.com/TAbelhaDev/tabelhascaff/ipc"
 )
 
+// worktreeStatusEntry holds the bridge health of a single worktree.
+type worktreeStatusEntry struct {
+	Path               string `json:"path"`
+	ClaudeDir          string `json:"claude_dir"`
+	ClaudeLinked       bool   `json:"claude_linked"`
+	AgentsMdHasSection bool   `json:"agents_md_has_section"`
+}
+
 // statusResult is the wire format for the status method.
 type statusResult struct {
-	Project            string   `json:"project"`
-	SharedDir          string   `json:"shared_dir"`
-	SharedExists       bool     `json:"shared_exists"`
-	TopicFiles         []string `json:"topic_files,omitempty"`
-	ClaudeDir          string   `json:"claude_dir,omitempty"`
-	ClaudeLinked       bool     `json:"claude_linked"`
-	AgentsMdHasSection bool     `json:"agents_md_has_section"`
+	Project            string                `json:"project"`
+	SharedDir          string                `json:"shared_dir"`
+	SharedExists       bool                  `json:"shared_exists"`
+	TopicFiles         []string              `json:"topic_files,omitempty"`
+	ClaudeDir          string                `json:"claude_dir,omitempty"`
+	ClaudeLinked       bool                  `json:"claude_linked"`
+	AgentsMdHasSection bool                  `json:"agents_md_has_section"`
+	Worktrees          []worktreeStatusEntry `json:"worktrees,omitempty"`
 }
 
 func ipcStatus(filters map[string]string) int {
@@ -41,13 +50,34 @@ func ipcStatus(filters map[string]string) int {
 			fmt.Fprintln(os.Stderr, "erro:", err)
 			return 1
 		}
-		claudeDir := claudeMemoryDir(repoAbs)
-		result.ClaudeDir = claudeDir
-		if target, err := symlinkTarget(claudeDir); err == nil {
-			result.ClaudeLinked = target == shared
-		}
-		if data, err := os.ReadFile(filepath.Join(repoAbs, "AGENTS.md")); err == nil {
-			result.AgentsMdHasSection = strings.Contains(string(data), agentsMarkerStart)
+
+		result.ClaudeDir = claudeMemoryDir(repoAbs)
+
+		worktrees := gitWorktrees(repoAbs)
+		for _, wt := range worktrees {
+			wtClaude := claudeMemoryDir(wt)
+			linked := false
+			if target, err := symlinkTarget(wtClaude); err == nil {
+				linked = target == shared
+			}
+			hasSection := false
+			if data, err := os.ReadFile(filepath.Join(wt, "AGENTS.md")); err == nil {
+				hasSection = strings.Contains(string(data), agentsMarkerStart)
+			}
+
+			entry := worktreeStatusEntry{
+				Path:               wt,
+				ClaudeDir:          wtClaude,
+				ClaudeLinked:       linked,
+				AgentsMdHasSection: hasSection,
+			}
+
+			if wt == repoAbs {
+				result.ClaudeLinked = linked
+				result.AgentsMdHasSection = hasSection
+			} else {
+				result.Worktrees = append(result.Worktrees, entry)
+			}
 		}
 	}
 
