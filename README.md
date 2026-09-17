@@ -7,6 +7,8 @@
 **English** · [Português](README.pt-BR.md)
 
 [![Go Version](https://img.shields.io/github/go-mod/go-version/TAbelhaDev/tabelhamem?style=flat-square&logo=go&logoColor=white&color=00ADD8)](go.mod)
+[![Built with Bubble Tea](https://img.shields.io/badge/built%20with-Bubble%20Tea-ff69b4?style=flat-square)](https://github.com/charmbracelet/bubbletea)
+[![Powered by tabelhatuiui](https://img.shields.io/badge/theme-tabelhatuiui-d6b4f7?style=flat-square)](https://github.com/TAbelhaDev/tabelhatuiui)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square)](LICENSE)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/ianptkcs)
@@ -42,7 +44,18 @@ per worktree.
 ## Install
 
 ```bash
-go install github.com/TAbelhaDev/tabelhamem@latest
+go install github.com/TAbelhaDev/tabelhamem/cmd/tamem@latest
+```
+
+### Local development
+
+A `post-commit` hook in `.githooks/` rebuilds and reinstalls `tamem` to
+`~/.local/bin/tamem` after every commit, so the local command never goes
+stale. Git doesn't enable a repo's `.githooks/` automatically on clone — run
+this once per clone:
+
+```bash
+git config core.hooksPath .githooks
 ```
 
 ## Usage
