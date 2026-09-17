@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `global` IPC method: idempotent setup of the shared global memory store
+  at `~/agent-memory/global/`. Migrates existing `~/.config/opencode/AGENTS.md`
+  and `~/.claude/memory/` content into the store, symlinks both to the
+  shared store.
+- Interactive TUI (Bubble Tea + tabelhatuiui v0.6.0): 3-panel layout
+  (projects sidebar, bridge status, memory browser) with integrated
+  search, link/unlink forms, inline scrollable file viewer, and
+  rebindable keybindings.
+- `config.toml` at `~/.config/tabelhamem/config.toml`: `[[projects]]`
+  slug-to-repo mapping, `[layout]` panel shares, `[general] editor`.
+- `searchMemory()` extracted as a reusable core shared by both IPC and TUI
+  search modes.
+
+### Changed
+- `tamem` (no args) now launches the TUI instead of printing usage to
+  stderr and exiting with code 1.
+- Dependencies: added bubbletea v1.3.10, bubbles v1.0.0, lipgloss v1.1.0,
+  tabelhatuiui v0.6.0, BurntSushi/toml v1.6.0.
+
 ## [0.3.0] - 2026-09-14
 
 ### Added

@@ -152,18 +152,19 @@ const (
 	agentsMarkerEnd   = "<!-- tamem:memory-bridge:end -->"
 )
 
-// agentsSection is the block tamem keeps in a repo's AGENTS.md, teaching an
-// agent with no built-in memory feature (like OpenCode) to read/write the
-// same shared store Claude Code reads/writes automatically.
+// agentsSection is the block tamem keeps in a repo's AGENTS.md, teaching
+// OpenCode to read/write the same shared store Claude Code reads/writes
+// automatically through its symlink.
 func agentsSection(shared string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s\n", agentsMarkerStart)
 	fmt.Fprintf(&b, "## Shared agent memory\n\n")
 	fmt.Fprintf(&b, "This project's persistent notes live at `%s`, shared\n", shared)
 	fmt.Fprintf(&b, "between Claude Code (which reads/writes it automatically through a\n")
-	fmt.Fprintf(&b, "symlink at its own `~/.claude/projects/<escaped-cwd>/memory/`) and any\n")
-	fmt.Fprintf(&b, "other agent with no built-in memory feature — that has to be done\n")
-	fmt.Fprintf(&b, "manually, following the convention below.\n\n")
+	fmt.Fprintf(&b, "symlink at its own `~/.claude/projects/<escaped-cwd>/memory/`) and\n")
+	fmt.Fprintf(&b, "OpenCode (which reads/writes it through this block, loaded\n")
+	fmt.Fprintf(&b, "automatically from `AGENTS.md` at session start). Follow the\n")
+	fmt.Fprintf(&b, "convention below to keep the store useful.\n\n")
 	fmt.Fprintf(&b, "Before starting non-trivial work, read `%s/MEMORY.md`\n", shared)
 	fmt.Fprintf(&b, "(an index) and any linked topic file relevant to the task.\n\n")
 	fmt.Fprintf(&b, "When you learn something worth remembering — not code patterns or git\n")
@@ -171,12 +172,14 @@ func agentsSection(shared string) string {
 	fmt.Fprintf(&b, "feedback, project state/decisions, or pointers to external systems —\n")
 	fmt.Fprintf(&b, "write a new `.md` file in that directory and add a one-line entry to\n")
 	fmt.Fprintf(&b, "`MEMORY.md`. Each topic file needs YAML frontmatter:\n\n")
-	fmt.Fprintf(&b, "```yaml\n---\nname: short-kebab-case-slug\ndescription: one-line summary used to judge relevance later\nmetadata:\n  type: user | feedback | project | reference\n---\n```\n\n")
+	fmt.Fprintf(&b, "```yaml\n---\nname: short-kebab-case-slug\ndescription: one-line summary used to judge relevance later\nmetadata:\n  type: user | feedback | project | next-steps | reference\n---\n```\n\n")
 	fmt.Fprintf(&b, "- **user**: the user's role, goals, expertise.\n")
 	fmt.Fprintf(&b, "- **feedback**: guidance the user gave about how to approach work\n")
 	fmt.Fprintf(&b, "  (what to avoid, what worked) — include *why*.\n")
 	fmt.Fprintf(&b, "- **project**: ongoing work/decisions not derivable from the code —\n")
 	fmt.Fprintf(&b, "  include *why* and *how to apply*.\n")
+	fmt.Fprintf(&b, "- **next-steps**: what comes next for this project — tasks, milestones,\n")
+	fmt.Fprintf(&b, "  blockers. Read by taradar's next_steps field.\n")
 	fmt.Fprintf(&b, "- **reference**: pointers to external systems (trackers, dashboards, docs).\n\n")
 	fmt.Fprintf(&b, "Link related entries with `[[other-file-name]]` (without the `.md`\n")
 	fmt.Fprintf(&b, "extension). Don't duplicate an existing entry — update it instead.\n")

@@ -22,16 +22,17 @@ project-scoped `MEMORY.md` index plus typed topic files
 (`feedback_*.md`/`project_*.md`/`reference_*.md`/`user_*.md`, YAML
 frontmatter) at the start of every session, stored at
 `~/.claude/projects/<escaped-cwd>/memory/` — one directory per exact working
-directory, with no way to point it elsewhere. OpenCode has no equivalent
-automatic feature: only a global, hand-maintained `memory.md` journal and
-per-repo `AGENTS.md` instruction files.
+directory, with no way to point it elsewhere. OpenCode has no per-project
+memory dir of its own, but it auto-loads `AGENTS.md` at session start —
+tamem uses that to teach it the same store.
 
 `tamem` bridges the two by making both point at the same plain-markdown
 store: `~/agent-memory/<project>/`, sibling to `~/jobs` (the user's own
 automation state, not owned by any single tool). Claude Code's per-project
 memory directory becomes a symlink into it (transparent — Claude just does
-normal file I/O); OpenCode is taught to read/write the same location through
-an instruction block `tamem` maintains in the repo's `AGENTS.md`.
+normal file I/O); OpenCode reads/writes the same location through an
+instruction block `tamem` maintains in the repo's `AGENTS.md`, auto-loaded
+by opencode each session.
 
 When the repo is a git repository, `tamem` automatically detects all git
 worktrees via `git worktree list` and links, unlinks, or checks the bridge
@@ -45,6 +46,52 @@ go install github.com/TAbelhaDev/tabelhamem@latest
 ```
 
 ## Usage
+
+Running `tamem` with no arguments launches the interactive TUI for browsing,
+searching, linking, and unlinking projects. The `ipc` subcommand remains
+available for scripting.
+
+### TUI
+
+```bash
+# Launch the interactive TUI
+tamem
+
+# Configure your projects in ~/.config/tabelhamem/config.toml
+cat <<'EOF'
+[[projects]]
+slug = "tabelharadar"
+repo = "/home/ianptkcs/codigo/tabelhadev/tabelharadar"
+
+[layout]
+sidebar_width_share = 1
+right_width_share = 4
+stats_height_share = 1
+memory_height_share = 4
+
+[general]
+editor = ""
+EOF
+```
+
+Keybindings (rebindable in `~/.config/tabelhamem/keybindings.json`):
+
+| Key | Action |
+|---|---|
+| `q` | Quit |
+| `?` | Help |
+| `,` | Rebind keys |
+| `r` | Rescan projects |
+| `ctrl+shift+r` | Reload config |
+| `ctrl+h` / `ctrl+l` | Navigate panels |
+| `j` / `k` | Move cursor / scroll content |
+| `enter` | Open file in editor |
+| `/` | Search memory |
+| `l` | Link project |
+| `u` | Unlink project |
+| `esc` | Back / quit |
+
+### IPC (scriptable JSON)
 
 ```bash
 # Link a project's memory: migrates existing Claude Code memory files into
@@ -71,6 +118,7 @@ tamem ipc search query=worktree type=feedback --json
 
 | Method | Filters | Description |
 |---|---|---|
+| `global` | (none) | Sets up the shared global memory store: creates `~/agent-memory/global/`, migrates existing `AGENTS.md`, symlinks Claude Code, and updates the OpenCode pointer |
 | `link` | `project=`, `repo=` | Creates/updates the bridge for a project: migrate + symlink + AGENTS.md section |
 | `unlink` | `project=`, `repo=` | Reverses `link` for one repo: restores a real directory, removes the AGENTS.md section, leaves the shared dir alone |
 | `status` | `project=`, `repo=` (optional) | Reports whether the symlink and AGENTS.md section are in place |
@@ -79,9 +127,9 @@ tamem ipc search query=worktree type=feedback --json
 
 ## Limitations
 
-- OpenCode has no built-in mechanism to auto-read `AGENTS.md` instructions
-  the way Claude Code auto-loads `MEMORY.md` — the bridge only works as
-  reliably as the model follows that instruction each session.
+- The OpenCode side of the bridge is instruction-driven: opencode auto-loads
+  the `AGENTS.md` block, but actually reading/writing the shared store still
+  depends on the model following that instruction each session.
 - Worktree detection requires `git` on `$PATH`. If `git` is unavailable,
   `tamem` falls back to operating on a single directory (the `repo=` path).
 - After `unlink`, re-running `link` will refuse to overwrite if the local

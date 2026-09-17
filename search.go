@@ -64,24 +64,16 @@ func unquote(s string) string {
 	return strings.Trim(s, `"'`)
 }
 
-func ipcSearch(filters map[string]string) int {
-	query := filters["query"]
-	if query == "" {
-		fmt.Fprintln(os.Stderr, "filtro query= é obrigatório")
-		return 1
-	}
-	typeFilter := filters["type"]
-	projectFilter := filters["project"]
+// searchMemory performs a full-text search across all bridged projects'
+// memory files, returning the matches. It is the reusable core shared by the
+// IPC search method and the TUI search mode.
+func searchMemory(query, typeFilter, projectFilter string) []searchMatch {
 	queryLower := strings.ToLower(query)
 
 	root := filepath.Join(homeDir(), "agent-memory")
 	entries, err := os.ReadDir(root)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return ipc.WriteJSON([]searchMatch{})
-		}
-		fmt.Fprintln(os.Stderr, "erro:", err)
-		return 1
+		return []searchMatch{}
 	}
 
 	matches := make([]searchMatch, 0)
@@ -116,8 +108,61 @@ func ipcSearch(filters map[string]string) int {
 			})
 		}
 	}
+	return matches
+}
 
-	return ipc.WriteJSON(matches)
+func ipcSearch(filters map[string]string) int {
+	query := filters["query"]
+	if query == "" {
+		fmt.Fprintln(os.Stderr, "filtro query= é obrigatório")
+		return 1
+	}
+	return ipc.WriteJSON(searchMemory(query, filters["type"], filters["project"]))
+}
+
+// searchDigestOut is the wire format for the search-digest method.
+type searchDigestOut struct {
+	Markdown string        `json:"markdown"`
+	Matches  []searchMatch `json:"matches"`
+	Count    int           `json:"count"`
+}
+
+func ipcSearchDigest(filters map[string]string) int {
+	query := filters["query"]
+	if query == "" {
+		fmt.Fprintln(os.Stderr, "filtro query= é obrigatório")
+		return 1
+	}
+
+	matches := searchMemory(query, filters["type"], filters["project"])
+
+	var b strings.Builder
+	b.WriteString("# Resultados da busca na memória\n\n")
+	fmt.Fprintf(&b, "**Query:** %s\n\n", query)
+	if filters["type"] != "" {
+		fmt.Fprintf(&b, "**Tipo:** %s\n\n", filters["type"])
+	}
+	fmt.Fprintf(&b, "**Encontrados:** %d resultado(s)\n\n", len(matches))
+
+	if len(matches) == 0 {
+		b.WriteString("Nenhum resultado encontrado.\n")
+	} else {
+		for _, m := range matches {
+			fmt.Fprintf(&b, "## %s / %s\n\n", m.Project, m.File)
+			if m.Description != "" {
+				fmt.Fprintf(&b, "%s\n\n", m.Description)
+			}
+			if m.Snippet != "" {
+				fmt.Fprintf(&b, "> %s\n\n", m.Snippet)
+			}
+		}
+	}
+
+	return ipc.WriteJSON(searchDigestOut{
+		Markdown: b.String(),
+		Matches:  matches,
+		Count:    len(matches),
+	})
 }
 
 // snippetAround returns ~80 chars of context around the first occurrence of

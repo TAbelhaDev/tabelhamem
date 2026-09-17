@@ -14,6 +14,7 @@ type worktreeStatusEntry struct {
 	Path               string `json:"path"`
 	ClaudeDir          string `json:"claude_dir"`
 	ClaudeLinked       bool   `json:"claude_linked"`
+	OpenCodeLinked     bool   `json:"opencode_linked"`
 	AgentsMdHasSection bool   `json:"agents_md_has_section"`
 }
 
@@ -25,6 +26,7 @@ type statusResult struct {
 	TopicFiles         []string              `json:"topic_files,omitempty"`
 	ClaudeDir          string                `json:"claude_dir,omitempty"`
 	ClaudeLinked       bool                  `json:"claude_linked"`
+	OpenCodeLinked     bool                  `json:"opencode_linked"`
 	AgentsMdHasSection bool                  `json:"agents_md_has_section"`
 	Worktrees          []worktreeStatusEntry `json:"worktrees,omitempty"`
 }
@@ -69,11 +71,13 @@ func ipcStatus(filters map[string]string) int {
 				Path:               wt,
 				ClaudeDir:          wtClaude,
 				ClaudeLinked:       linked,
+				OpenCodeLinked:     hasSection,
 				AgentsMdHasSection: hasSection,
 			}
 
 			if wt == repoAbs {
 				result.ClaudeLinked = linked
+				result.OpenCodeLinked = hasSection
 				result.AgentsMdHasSection = hasSection
 			} else {
 				result.Worktrees = append(result.Worktrees, entry)
@@ -131,4 +135,66 @@ func topicFiles(dir string) []string {
 		}
 	}
 	return out
+}
+
+// healthResult is a single project's health summary for the health method.
+type healthResult struct {
+	Project    string `json:"project"`
+	SharedDir  string `json:"shared_dir"`
+	Exists     bool   `json:"exists"`
+	TopicCount int    `json:"topic_count"`
+}
+
+// healthDigestOut is the wire format for the health method.
+type healthDigestOut struct {
+	Markdown string         `json:"markdown"`
+	Projects []healthResult `json:"projects"`
+	Broken   []string       `json:"broken,omitempty"`
+}
+
+func ipcHealth(_ map[string]string) int {
+	root := filepath.Join(homeDir(), "agent-memory")
+	entries, err := os.ReadDir(root)
+	if err != nil && !os.IsNotExist(err) {
+		fmt.Fprintln(os.Stderr, "erro:", err)
+		return 1
+	}
+
+	var projects []healthResult
+	var broken []string
+	var b strings.Builder
+	b.WriteString("# Saúde da memória compartilhada\n\n")
+
+	if len(entries) == 0 {
+		b.WriteString("Nenhum projeto encontrado em `~/agent-memory/`.\n")
+		return ipc.WriteJSON(healthDigestOut{Markdown: b.String()})
+	}
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		dir := filepath.Join(root, e.Name())
+		topics := topicFiles(dir)
+		p := healthResult{
+			Project:    e.Name(),
+			SharedDir:  dir,
+			Exists:     true,
+			TopicCount: len(topics),
+		}
+		projects = append(projects, p)
+
+		if len(topics) == 0 {
+			broken = append(broken, e.Name())
+			fmt.Fprintf(&b, "## ⚠️ %s\n\n- Status: **sem tópicos**\n- Dir: `%s`\n\n", e.Name(), dir)
+		} else {
+			fmt.Fprintf(&b, "## %s\n\n- Status: ✅ %d tópicos\n- Dir: `%s`\n\n", e.Name(), len(topics), dir)
+		}
+	}
+
+	return ipc.WriteJSON(healthDigestOut{
+		Markdown: b.String(),
+		Projects: projects,
+		Broken:   broken,
+	})
 }
